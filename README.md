@@ -14,9 +14,10 @@ The workflow is run manually via GitHub Actions and requires an iNaturalist API 
 
 2. Run the workflow:
    - Go to the Actions tab in your GitHub repository.
-   - Select the `Daily Herbarium Operations` workflow.
+   - Select the `UWAL Herbarium iNat Operations` workflow.
    - Click "Run workflow".
    - Paste your iNaturalist API token into the `inat_api_token` input field.
+   - Make sure Dry Run is set to false to actually add/remove observations in the project. Set to true, the workflow will print invalid observations in the project but not remove them.
 
 ## Scripts
 

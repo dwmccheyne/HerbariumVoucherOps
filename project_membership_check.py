@@ -18,7 +18,8 @@ def load_observations():
         return json.load(f)
 
 def get_project_observation_ids():
-    ids = set()
+    obs_ids = set()
+    po_map = {}  # observation_id -> project_observation_id
     page = 1
     while True:
         params = {"per_page": 200, "page": page, "project_id": PROJECT_ID}
@@ -29,11 +30,16 @@ def get_project_observation_ids():
         if not results:
             break
         for obs in results:
-            ids.add(obs["id"])
+            obs_id = obs["id"]
+            obs_ids.add(obs_id)
+            # Find project_observation_id (fix: project is an object)
+            for po in obs.get("project_observations", []):
+                if po.get("project", {}).get("id") == PROJECT_ID:
+                    po_map[obs_id] = po.get("id")
         if len(results) < 200:
             break
         page += 1
-    return ids
+    return obs_ids, po_map
 
 def add_observation_to_project(obs_id, dry_run):
     if dry_run:
@@ -50,12 +56,18 @@ def remove_observation_from_project(obs_id, dry_run):
     if dry_run:
         print(f"Would remove observation {obs_id} from project {PROJECT_ID}")
         return
-    url = f"https://api.inaturalist.org/v1/projects/{PROJECT_ID}/remove_observation"
-    response = requests.post(url, json={"observation_id": obs_id}, headers=HEADERS)
+    # Need project_observation_id
+    global project_observation_map
+    po_id = project_observation_map.get(obs_id)
+    if not po_id:
+        print(f"Could not find project_observation_id for observation {obs_id}")
+        return
+    url = f"https://api.inaturalist.org/v1/project_observations/{po_id}"
+    response = requests.delete(url, headers=HEADERS)
     if response.status_code == 200:
-        print(f"Removed observation {obs_id} from project {PROJECT_ID}")
+        print(f"Removed observation {obs_id} (project_observation_id {po_id}) from project {PROJECT_ID}")
     else:
-        print(f"Failed to remove observation {obs_id}: {response.text}")
+        print(f"Failed to remove observation {obs_id} (project_observation_id {po_id}): {response.text}")
 
 def main():
     parser = argparse.ArgumentParser(description="Check and update project membership for UWAL-M/L observations.")
@@ -64,7 +76,9 @@ def main():
     dry_run = args.dry_run
 
     observations = load_observations()
-    project_obs_ids = get_project_observation_ids()
+    project_obs_ids, po_map = get_project_observation_ids()
+    global project_observation_map
+    project_observation_map = po_map
     obs_ids_to_add = set()
     obs_ids_to_remove = set()
 
@@ -102,7 +116,8 @@ def main():
         remove_observation_from_project(obs_id, dry_run)
 
     # Validate project membership
-    project_obs_ids = get_project_observation_ids()
+    project_obs_ids, po_map = get_project_observation_ids()
+    project_observation_map = po_map
     invalid_ids = []
     for obs_id in project_obs_ids:
         obs = next((o for o in observations if o["id"] == obs_id), None)
@@ -126,6 +141,7 @@ def main():
                         field_val = str(field.get("value", ""))
                         break
             print(f"{obs_id}: '{field_val}'")
+            remove_observation_from_project(obs_id, dry_run)
     else:
         print("All project observations have UWAL-M.")
 

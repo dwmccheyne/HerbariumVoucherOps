@@ -10,7 +10,7 @@ on:
       dry_run:
         description: 'Run in dry-run mode (no changes to project)'
         required: true
-        default: 'true'
+        default: 'false'
         type: choice
         options:
           - 'true'
