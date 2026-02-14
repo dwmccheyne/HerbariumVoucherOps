@@ -1,12 +1,23 @@
-name: Daily Herbarium Operations
+name: UWAL Herbarium iNat Operations
 
 on:
-  schedule:
-    - cron: '0 7 * * *'  # 2AM EST = 7AM UTC
   workflow_dispatch:
+    inputs:
+      inat_api_token:
+        description: 'iNaturalist API token (get from https://www.inaturalist.org/users/api_token)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Run in dry-run mode (no changes to project)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
-  herbarium-daily:
+  herbarium-project-trueup:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -23,9 +34,17 @@ jobs:
           pip install requests
 
       - name: Run Herbarium Fetch Script
+        env:
+          INAT_API_TOKEN: ${{ github.event.inputs.inat_api_token }}
         run: |
           python inat_herbarium_search.py
 
-      - name: Run Project Membership Check (dry run)
+      - name: Run Project Membership Check
+        env:
+          INAT_API_TOKEN: ${{ github.event.inputs.inat_api_token }}
         run: |
-          python project_membership_check.py --dry-run
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python project_membership_check.py --dry-run
+          else
+            python project_membership_check.py
+          fi
